@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f766e" />
+  <meta name="description" content="Tipo de cambio oficial BCB y dólar paralelo en Bolivia" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Dólar BO" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <title>Dólar Bolivia</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --card: #152033;
+      --card2: #1a2740;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #14b8a6;
+      --accent-dim: #0f766e;
+      --warn: #fbbf24;
+      --danger: #f87171;
+      --ok: #34d399;
+      --border: rgba(148, 163, 184, 0.18);
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 18px;
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-t: env(safe-area-inset-top, 0px);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      background: radial-gradient(1200px 600px at 50% -10%, #134e4a 0%, var(--bg) 55%);
+      color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: calc(16px + var(--safe-t)) 16px calc(28px + var(--safe-b));
+    }
+    header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.55rem;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+    }
+    .subtitle {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .refresh-btn {
+      flex-shrink: 0;
+      border: 1px solid var(--border);
+      background: rgba(20, 184, 166, 0.12);
+      color: var(--text);
+      border-radius: 999px;
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      font-size: 1.25rem;
+      transition: transform .15s ease, background .15s ease;
+    }
+    .refresh-btn:active { transform: scale(0.94); }
+    .refresh-btn.spinning { animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--ok);
+      box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.2);
+    }
+    .dot.warn { background: var(--warn); box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.2); }
+    .dot.err { background: var(--danger); box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.2); }
+
+    .card {
+      background: linear-gradient(180deg, var(--card) 0%, var(--card2) 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px 16px 16px;
+      margin-bottom: 14px;
+    }
+    .card-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #99f6e4;
+      background: rgba(20, 184, 166, 0.15);
+      border: 1px solid rgba(20, 184, 166, 0.35);
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+    .badge.parallel {
+      color: #fde68a;
+      background: rgba(251, 191, 36, 0.12);
+      border-color: rgba(251, 191, 36, 0.35);
+    }
+    .meta {
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-align: right;
+    }
+    .rates {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .rate {
+      background: rgba(15, 23, 42, 0.45);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 12px;
+      text-align: center;
+    }
+    .rate .lbl {
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    .rate .val {
+      font-variant-numeric: tabular-nums;
+      font-size: clamp(1.7rem, 8vw, 2.15rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      color: #ecfeff;
+    }
+    .rate .unit {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+    .note {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.4;
+    }
+    .spread {
+      margin-top: 12px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(20, 184, 166, 0.08);
+      border: 1px dashed rgba(20, 184, 166, 0.25);
+      font-size: 0.85rem;
+    }
+    .spread strong { color: var(--accent); font-variant-numeric: tabular-nums; }
+
+    footer {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.72rem;
+      line-height: 1.45;
+      text-align: center;
+    }
+    footer a { color: #5eead4; text-decoration: none; }
+    .skel {
+      background: linear-gradient(90deg, rgba(148,163,184,.08), rgba(148,163,184,.18), rgba(148,163,184,.08));
+      background-size: 200% 100%;
+      animation: shimmer 1.2s infinite;
+      border-radius: 8px;
+      color: transparent !important;
+      min-height: 1.2em;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Dólar Bolivia</h1>
+        <p class="subtitle">USD / BOB · oficial y paralelo</p>
+      </div>
+      <button class="refresh-btn" id="btnRefresh" type="button" aria-label="Actualizar" title="Actualizar">↻</button>
+    </header>
+
+    <div class="status" id="statusRow">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">Cargando cotizaciones…</span>
+    </div>
+
+    <section class="card" aria-labelledby="oficialTitle">
+      <div class="card-label">
+        <span class="badge" id="oficialTitle">Oficial BCB</span>
+        <span class="meta" id="oficialFecha">—</span>
+      </div>
+      <div class="rates">
+        <div class="rate">
+          <div class="lbl">Compra (TCO)</div>
+          <div class="val" id="oficialCompra"><span class="skel">00.00</span></div>
+          <div class="unit">Bs por USD</div>
+        </div>
+        <div class="rate">
+          <div class="lbl">Venta referencial</div>
+          <div class="val" id="oficialVenta"><span class="skel">00.00</span></div>
+          <div class="unit">Bs por USD</div>
+        </div>
+      </div>
+      <p class="note" id="oficialNota">TCO = promedio ponderado de compras del BCB. La venta es tope referencial (TCO + Bs 0,10).</p>
+    </section>
+
+    <section class="card" aria-labelledby="paraleloTitle">
+      <div class="card-label">
+        <span class="badge parallel" id="paraleloTitle">Paralelo (P2P)</span>
+        <span class="meta" id="paraleloFecha">—</span>
+      </div>
+      <div class="rates">
+        <div class="rate">
+          <div class="lbl">Compra</div>
+          <div class="val" id="paraleloCompra"><span class="skel">00.00</span></div>
+          <div class="unit">Bs por USD</div>
+        </div>
+        <div class="rate">
+          <div class="lbl">Venta</div>
+          <div class="val" id="paraleloVenta"><span class="skel">00.00</span></div>
+          <div class="unit">Bs por USD</div>
+        </div>
+      </div>
+      <div class="spread" id="brechaRow">
+        <span>Brecha vs TCO (mediana)</span>
+        <strong id="brechaVal">—</strong>
+      </div>
+      <p class="note" id="paraleloNota">Mediana de ofertas P2P (paralelo.bo). Orientativa; no es cotización bancaria.</p>
+    </section>
+
+    <footer>
+      Fuentes: <a href="https://apibcb.cucu.bo" rel="noopener" target="_blank">API BCB (no oficial)</a>
+      · <a href="https://paralelo.bo" rel="noopener" target="_blank">paralelo.bo</a> (CC-BY 4.0).<br />
+      Solo informativo. Actualización automática cada 10 min.
+    </footer>
+  </div>
+
+  <script>
+    const OFFICIAL_URL = 'https://apibcb.cucu.bo/api/v1/tc/oficial';
+    const PARALLEL_URL = 'https://paralelo.bo/api/v1/rate';
+    const CACHE_KEY = 'dolar-bolivia-last';
+    const REFRESH_MS = 10 * 60 * 1000;
+
+    const $ = (id) => document.getElementById(id);
+
+    function fmtRate(n) {
+      if (n == null || Number.isNaN(Number(n))) return '—';
+      return Number(n).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function fmtDateBO(isoOrDate) {
+      if (!isoOrDate) return '—';
+      // Prefer date-only YYYY-MM-DD as calendar day in Bolivia
+      if (/^\d{4}-\d{2}-\d{2}$/.test(isoOrDate)) {
+        const [y, m, d] = isoOrDate.split('-').map(Number);
+        const dt = new Date(Date.UTC(y, m - 1, d, 12));
+        return dt.toLocaleDateString('es-BO', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'America/La_Paz' });
+      }
+      const dt = new Date(isoOrDate);
+      if (Number.isNaN(dt.getTime())) return String(isoOrDate);
+      return dt.toLocaleString('es-BO', {
+        day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+        timeZone: 'America/La_Paz'
+      });
+    }
+
+    function setStatus(kind, text) {
+      const dot = $('statusDot');
+      dot.className = 'dot' + (kind === 'ok' ? '' : kind === 'warn' ? ' warn' : ' err');
+      $('statusText').textContent = text;
+    }
+
+    function renderOfficial(tc) {
+      if (!tc) return;
+      $('oficialCompra').textContent = fmtRate(tc.compra);
+      $('oficialVenta').textContent = fmtRate(tc.venta);
+      $('oficialFecha').textContent = 'Vigente ' + fmtDateBO(tc.fecha || tc.vigencia_desde);
+      if (tc.nota) $('oficialNota').textContent = tc.nota;
+    }
+
+    function renderParallel(p, tco) {
+      if (!p) {
+        $('paraleloCompra').textContent = '—';
+        $('paraleloVenta').textContent = '—';
+        $('paraleloFecha').textContent = 'No disponible';
+        $('brechaVal').textContent = '—';
+        return;
+      }
+      $('paraleloCompra').textContent = fmtRate(p.buy);
+      $('paraleloVenta').textContent = fmtRate(p.sell);
+      $('paraleloFecha').textContent = fmtDateBO(p.timestamp);
+      if (tco != null && p.median != null) {
+        const gap = ((p.median - tco) / tco) * 100;
+        const sign = gap >= 0 ? '+' : '';
+        $('brechaVal').textContent = sign + gap.toFixed(1) + '% · med. ' + fmtRate(p.median);
+      } else if (p.median != null) {
+        $('brechaVal').textContent = 'mediana ' + fmtRate(p.median);
+      } else {
+        $('brechaVal').textContent = '—';
+      }
+    }
+
+    function saveCache(payload) {
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ ...payload, savedAt: Date.now() }));
+      } catch (_) {}
+    }
+
+    function loadCache() {
+      try {
+        const raw = localStorage.getItem(CACHE_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    async function fetchJson(url) {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    }
+
+    async function refresh(manual) {
+      const btn = $('btnRefresh');
+      if (manual) btn.classList.add('spinning');
+      setStatus('warn', manual ? 'Actualizando…' : 'Consultando APIs…');
+
+      let oficialOk = false;
+      let paraleloOk = false;
+      let tc = null;
+      let parallel = null;
+      let errMsg = '';
+
+      try {
+        const data = await fetchJson(OFFICIAL_URL);
+        tc = data && data.tc_oficial ? data.tc_oficial : null;
+        if (tc) {
+          renderOfficial(tc);
+          oficialOk = true;
+        }
+      } catch (e) {
+        errMsg = 'oficial';
+      }
+
+      try {
+        parallel = await fetchJson(PARALLEL_URL);
+        if (parallel && (parallel.buy != null || parallel.sell != null)) {
+          renderParallel(parallel, tc ? tc.compra : null);
+          paraleloOk = true;
+        }
+      } catch (e) {
+        errMsg = errMsg ? errMsg + '+paralelo' : 'paralelo';
+      }
+
+      const nowLabel = new Date().toLocaleString('es-BO', {
+        hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short',
+        timeZone: 'America/La_Paz'
+      });
+
+      if (oficialOk || paraleloOk) {
+        saveCache({ tc, parallel });
+        if (oficialOk && paraleloOk) {
+          setStatus('ok', 'Actualizado ' + nowLabel + ' (hora Bolivia)');
+        } else {
+          setStatus('warn', 'Parcial (' + (oficialOk ? 'solo oficial' : 'solo paralelo') + ') · ' + nowLabel);
+        }
+      } else {
+        const cached = loadCache();
+        if (cached) {
+          if (cached.tc) renderOfficial(cached.tc);
+          renderParallel(cached.parallel, cached.tc ? cached.tc.compra : null);
+          const saved = cached.savedAt
+            ? new Date(cached.savedAt).toLocaleString('es-BO', {
+                hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short',
+                timeZone: 'America/La_Paz'
+              })
+            : '—';
+          setStatus('err', 'Sin red · mostrando caché de ' + saved);
+        } else {
+          setStatus('err', 'No se pudo obtener cotizaciones');
+          $('oficialCompra').textContent = '—';
+          $('oficialVenta').textContent = '—';
+          renderParallel(null);
+        }
+      }
+
+      btn.classList.remove('spinning');
+    }
+
+    $('btnRefresh').addEventListener('click', () => refresh(true));
+
+    // Show cache immediately for snappy UX
+    const cached = loadCache();
+    if (cached) {
+      if (cached.tc) renderOfficial(cached.tc);
+      renderParallel(cached.parallel, cached.tc ? cached.tc.compra : null);
+      setStatus('warn', 'Caché local · actualizando…');
+    }
+
+    refresh(false);
+    setInterval(() => refresh(false), REFRESH_MS);
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
