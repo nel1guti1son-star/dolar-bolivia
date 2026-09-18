@@ -131,6 +131,16 @@
       background: rgba(251, 191, 36, 0.12);
       border-color: rgba(251, 191, 36, 0.35);
     }
+    .badge.chart {
+      color: #a5b4fc;
+      background: rgba(99, 102, 241, 0.14);
+      border-color: rgba(129, 140, 248, 0.4);
+    }
+    .badge.forecast {
+      color: #fbcfe8;
+      background: rgba(236, 72, 153, 0.12);
+      border-color: rgba(244, 114, 182, 0.35);
+    }
     .meta {
       color: var(--muted);
       font-size: 0.78rem;
@@ -185,6 +195,67 @@
       font-size: 0.85rem;
     }
     .spread strong { color: var(--accent); font-variant-numeric: tabular-nums; }
+
+    .chart-wrap {
+      width: 100%;
+      overflow: hidden;
+      margin-top: 2px;
+    }
+    .chart-wrap svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .chart-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 10px;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .chart-legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .swatch {
+      width: 14px;
+      height: 3px;
+      border-radius: 2px;
+      background: #2dd4bf;
+    }
+    .swatch.fc {
+      background: transparent;
+      border-top: 2px dashed #f472b6;
+      height: 0;
+      width: 16px;
+    }
+    .forecast-range {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .forecast-range .rate .val {
+      font-size: clamp(1.35rem, 6.5vw, 1.7rem);
+    }
+    .disclaimer {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(251, 191, 36, 0.1);
+      border: 1px solid rgba(251, 191, 36, 0.28);
+      color: #fde68a;
+      font-size: 0.76rem;
+      line-height: 1.45;
+    }
+    .method {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.74rem;
+      line-height: 1.45;
+    }
 
     footer {
       margin-top: 8px;
@@ -268,9 +339,50 @@
       <p class="note" id="paraleloNota">Mediana de ofertas P2P (paralelo.bo). Orientativa; no es cotización bancaria.</p>
     </section>
 
+    <section class="card" aria-labelledby="chartTitle">
+      <div class="card-label">
+        <span class="badge chart" id="chartTitle">TCO · últimos ~20 días</span>
+        <span class="meta" id="chartMeta">Oficial BCB</span>
+      </div>
+      <div class="chart-wrap" id="chartWrap" role="img" aria-label="Gráfico de línea del TCO oficial">
+        <svg id="tcoChart" viewBox="0 0 360 200" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="chart-legend">
+        <span><i class="swatch" aria-hidden="true"></i> TCO oficial</span>
+        <span><i class="swatch fc" aria-hidden="true"></i> Proyección 5 días</span>
+      </div>
+      <p class="note">Serie semilla verificada con tablas BCB; el valor de hoy se actualiza con la API en vivo. Sin historial paralelo (no inventado).</p>
+    </section>
+
+    <section class="card" aria-labelledby="forecastTitle">
+      <div class="card-label">
+        <span class="badge forecast" id="forecastTitle">Tendencia · próximos días</span>
+        <span class="meta" id="forecastMeta">3–5 días</span>
+      </div>
+      <div class="forecast-range">
+        <div class="rate">
+          <div class="lbl">Estimación ~5 días</div>
+          <div class="val" id="forecastMid">—</div>
+          <div class="unit">Bs / USD (TCO)</div>
+        </div>
+        <div class="rate">
+          <div class="lbl">Rango orientativo</div>
+          <div class="val" id="forecastRange" style="font-size:clamp(1.1rem,5.5vw,1.4rem)">—</div>
+          <div class="unit">Bs / USD</div>
+        </div>
+      </div>
+      <p class="method" id="forecastMethod"></p>
+      <p class="note" id="forecastNote"></p>
+      <div class="disclaimer" role="note">
+        <strong>Estimación informativa, no es consejo financiero.</strong>
+        Puede fallar; el paralelo puede moverse distinto. No uses esto para decisiones de inversión o cambio.
+      </div>
+    </section>
+
     <footer>
       Fuentes: <a href="https://apibcb.cucu.bo" rel="noopener" target="_blank">API BCB (no oficial)</a>
-      · <a href="https://paralelo.bo" rel="noopener" target="_blank">paralelo.bo</a> (CC-BY 4.0).<br />
+      · <a href="https://paralelo.bo" rel="noopener" target="_blank">paralelo.bo</a> (CC-BY 4.0)
+      · tablas públicas BCB.<br />
       Solo informativo. Actualización automática cada 10 min.
     </footer>
   </div>
@@ -281,6 +393,31 @@
     const CACHE_KEY = 'dolar-bolivia-last';
     const REFRESH_MS = 10 * 60 * 1000;
 
+    // Verified BCB TCO (compra) calendar series ≈ last 20 days ending 2026-09-18.
+    // Source: BCB histórico / última publicación; weekends keep prior hábil TCO.
+    const SEED_TCO = [
+      { fecha: '2026-08-30', tco: 11.92 },
+      { fecha: '2026-08-31', tco: 11.92 },
+      { fecha: '2026-09-01', tco: 12.12 },
+      { fecha: '2026-09-02', tco: 12.26 },
+      { fecha: '2026-09-03', tco: 12.32 },
+      { fecha: '2026-09-04', tco: 12.45 },
+      { fecha: '2026-09-05', tco: 12.58 },
+      { fecha: '2026-09-06', tco: 12.58 },
+      { fecha: '2026-09-07', tco: 12.58 },
+      { fecha: '2026-09-08', tco: 12.60 },
+      { fecha: '2026-09-09', tco: 12.64 },
+      { fecha: '2026-09-10', tco: 12.42 },
+      { fecha: '2026-09-11', tco: 12.04 },
+      { fecha: '2026-09-12', tco: 11.53 },
+      { fecha: '2026-09-13', tco: 11.53 },
+      { fecha: '2026-09-14', tco: 11.53 },
+      { fecha: '2026-09-15', tco: 10.99 },
+      { fecha: '2026-09-16', tco: 10.15 },
+      { fecha: '2026-09-17', tco: 9.83 },
+      { fecha: '2026-09-18', tco: 10.01 }
+    ];
+
     const $ = (id) => document.getElementById(id);
 
     function fmtRate(n) {
@@ -290,7 +427,6 @@
 
     function fmtDateBO(isoOrDate) {
       if (!isoOrDate) return '—';
-      // Prefer date-only YYYY-MM-DD as calendar day in Bolivia
       if (/^\d{4}-\d{2}-\d{2}$/.test(isoOrDate)) {
         const [y, m, d] = isoOrDate.split('-').map(Number);
         const dt = new Date(Date.UTC(y, m - 1, d, 12));
@@ -302,6 +438,19 @@
         day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
         timeZone: 'America/La_Paz'
       });
+    }
+
+    function fmtShortDay(iso) {
+      const [y, m, d] = iso.split('-').map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d, 12));
+      return dt.toLocaleDateString('es-BO', { day: 'numeric', month: 'short', timeZone: 'America/La_Paz' });
+    }
+
+    function addDaysISO(iso, days) {
+      const [y, m, d] = iso.split('-').map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d));
+      dt.setUTCDate(dt.getUTCDate() + days);
+      return dt.toISOString().slice(0, 10);
     }
 
     function setStatus(kind, text) {
@@ -361,6 +510,161 @@
       return res.json();
     }
 
+    function mergeLiveIntoSeries(seed, liveFecha, liveTco) {
+      const series = seed.map((p) => ({ ...p }));
+      if (!liveFecha || liveTco == null || Number.isNaN(Number(liveTco))) return series;
+      const tco = Number(liveTco);
+      const idx = series.findIndex((p) => p.fecha === liveFecha);
+      if (idx >= 0) {
+        series[idx] = { fecha: liveFecha, tco };
+      } else if (liveFecha > series[series.length - 1].fecha) {
+        series.push({ fecha: liveFecha, tco });
+        while (series.length > 22) series.shift();
+      }
+      return series;
+    }
+
+    function linearFit(ys) {
+      const n = ys.length;
+      const xs = ys.map((_, i) => i);
+      const xm = xs.reduce((a, b) => a + b, 0) / n;
+      const ym = ys.reduce((a, b) => a + b, 0) / n;
+      let num = 0, den = 0;
+      for (let i = 0; i < n; i++) {
+        num += (xs[i] - xm) * (ys[i] - ym);
+        den += (xs[i] - xm) * (xs[i] - xm);
+      }
+      const slope = den === 0 ? 0 : num / den;
+      const intercept = ym - slope * xm;
+      return { slope, intercept, n };
+    }
+
+    function buildForecast(series, horizon) {
+      const window = series.slice(-7);
+      const ys = window.map((p) => p.tco);
+      const { slope, intercept, n } = linearFit(ys);
+      const ma3 = ys.slice(-3).reduce((a, b) => a + b, 0) / Math.min(3, ys.length);
+      const last = series[series.length - 1];
+      const points = [];
+      // Blend: 70% MA3 anchor + 30% linear (dampens free-fall; BCB intervention context)
+      for (let d = 1; d <= horizon; d++) {
+        const linear = intercept + slope * (n - 1 + d);
+        const blended = 0.7 * ma3 + 0.3 * linear;
+        points.push({
+          fecha: addDaysISO(last.fecha, d),
+          tco: Math.round(blended * 100) / 100
+        });
+      }
+      const mid = points[points.length - 1].tco;
+      const band = 0.45;
+      return {
+        points,
+        mid,
+        low: Math.round((mid - band) * 100) / 100,
+        high: Math.round((mid + band) * 100) / 100,
+        slope,
+        ma3: Math.round(ma3 * 100) / 100,
+        lastFecha: last.fecha,
+        lastTco: last.tco
+      };
+    }
+
+    function renderForecast(fc) {
+      $('forecastMid').textContent = fmtRate(fc.mid);
+      $('forecastRange').textContent = fmtRate(fc.low) + ' – ' + fmtRate(fc.high);
+      $('forecastMeta').textContent = 'hasta ' + fmtShortDay(fc.points[fc.points.length - 1].fecha);
+      const slopeTxt = (fc.slope >= 0 ? '+' : '') + fc.slope.toFixed(2);
+      $('forecastMethod').textContent =
+        'Método: ajuste lineal sobre los últimos 7 días (pendiente ≈ ' + slopeTxt +
+        ' Bs/día) combinado 30/70 con media móvil de 3 días (' + fmtRate(fc.ma3) +
+        '). Último TCO: ' + fmtRate(fc.lastTco) + ' (' + fmtShortDay(fc.lastFecha) + ').';
+      $('forecastNote').textContent =
+        'Contexto BCB (≈8–9 sep 2026): suspensión temporal de nuevas compras de USD, Reserva Monetaria Restringida y oferta de US$35 M a Bs 12,10. El TCO cayó desde el pico ~12,64 (9 sep) hasta ~9,83 (17 sep) y rebotó a 10,01 (18 sep). Economistas advierten que la brecha oficial–paralelo persiste y que la baja puede ser alivio temporal por intervención, no unificación garantizada. Escenario base tras el rebote del 18 sep: consolidación en torno a ~9,4–10,1 más que caída libre; la extrapolación lineal pura seguiría bajando con fuerza y se considera poco fiable sola.';
+    }
+
+    function renderChart(series, forecastPts) {
+      const svg = $('tcoChart');
+      const W = 360, H = 200;
+      const pad = { l: 38, r: 12, t: 14, b: 36 };
+      const all = series.concat(forecastPts || []);
+      const vals = all.map((p) => p.tco);
+      let ymin = Math.min(...vals);
+      let ymax = Math.max(...vals);
+      const padY = Math.max(0.15, (ymax - ymin) * 0.12);
+      ymin -= padY;
+      ymax += padY;
+      const nAll = all.length;
+      const xAt = (i) => pad.l + (i / Math.max(1, nAll - 1)) * (W - pad.l - pad.r);
+      const yAt = (v) => pad.t + (1 - (v - ymin) / (ymax - ymin)) * (H - pad.t - pad.b);
+
+      const histPath = series.map((p, i) => {
+        const x = xAt(i), y = yAt(p.tco);
+        return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ' ' + y.toFixed(1);
+      }).join(' ');
+
+      let fcPath = '';
+      if (forecastPts && forecastPts.length) {
+        const startIdx = series.length - 1;
+        const bridge = [{ ...series[series.length - 1] }].concat(forecastPts);
+        fcPath = bridge.map((p, i) => {
+          const x = xAt(startIdx + i), y = yAt(p.tco);
+          return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ' ' + y.toFixed(1);
+        }).join(' ');
+      }
+
+      // Y ticks
+      const yTicks = 4;
+      let grid = '';
+      for (let i = 0; i <= yTicks; i++) {
+        const v = ymin + ((ymax - ymin) * i) / yTicks;
+        const y = yAt(v);
+        grid += '<line x1="' + pad.l + '" y1="' + y.toFixed(1) + '" x2="' + (W - pad.r) +
+          '" y2="' + y.toFixed(1) + '" stroke="rgba(148,163,184,0.15)" stroke-width="1"/>';
+        grid += '<text x="' + (pad.l - 6) + '" y="' + (y + 3).toFixed(1) +
+          '" text-anchor="end" fill="#94a3b8" font-size="9" font-variant-numeric="tabular-nums">' +
+          v.toFixed(1) + '</text>';
+      }
+
+      // X labels: first, mid, last hist, last forecast
+      const labelIdx = [0, Math.floor((series.length - 1) / 2), series.length - 1];
+      if (forecastPts && forecastPts.length) labelIdx.push(nAll - 1);
+      let xLabels = '';
+      const seen = new Set();
+      labelIdx.forEach((i) => {
+        if (seen.has(i) || i < 0 || i >= nAll) return;
+        seen.add(i);
+        const p = all[i];
+        xLabels += '<text x="' + xAt(i).toFixed(1) + '" y="' + (H - 10) +
+          '" text-anchor="middle" fill="#94a3b8" font-size="9">' +
+          fmtShortDay(p.fecha) + '</text>';
+      });
+
+      const lastHist = series[series.length - 1];
+      const lastDot = '<circle cx="' + xAt(series.length - 1).toFixed(1) + '" cy="' +
+        yAt(lastHist.tco).toFixed(1) + '" r="3.5" fill="#2dd4bf"/>';
+
+      svg.innerHTML =
+        '<rect x="0" y="0" width="' + W + '" height="' + H + '" fill="transparent"/>' +
+        grid +
+        '<path d="' + histPath + '" fill="none" stroke="#2dd4bf" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' +
+        (fcPath
+          ? '<path d="' + fcPath + '" fill="none" stroke="#f472b6" stroke-width="1.8" stroke-dasharray="5 4" stroke-linecap="round"/>'
+          : '') +
+        lastDot +
+        xLabels;
+
+      $('chartMeta').textContent =
+        fmtShortDay(series[0].fecha) + ' – ' + fmtShortDay(series[series.length - 1].fecha);
+    }
+
+    function updateTrendUI(liveFecha, liveTco) {
+      const series = mergeLiveIntoSeries(SEED_TCO, liveFecha, liveTco);
+      const fc = buildForecast(series, 5);
+      renderChart(series, fc.points);
+      renderForecast(fc);
+      return series;
+    }
+
     async function refresh(manual) {
       const btn = $('btnRefresh');
       if (manual) btn.classList.add('spinning');
@@ -370,7 +674,6 @@
       let paraleloOk = false;
       let tc = null;
       let parallel = null;
-      let errMsg = '';
 
       try {
         const data = await fetchJson(OFFICIAL_URL);
@@ -379,9 +682,7 @@
           renderOfficial(tc);
           oficialOk = true;
         }
-      } catch (e) {
-        errMsg = 'oficial';
-      }
+      } catch (e) { /* partial ok */ }
 
       try {
         parallel = await fetchJson(PARALLEL_URL);
@@ -389,9 +690,11 @@
           renderParallel(parallel, tc ? tc.compra : null);
           paraleloOk = true;
         }
-      } catch (e) {
-        errMsg = errMsg ? errMsg + '+paralelo' : 'paralelo';
-      }
+      } catch (e) { /* partial ok */ }
+
+      const liveFecha = tc && (tc.fecha || tc.vigencia_desde);
+      const liveTco = tc && (tc.compra != null ? tc.compra : tc.valor);
+      updateTrendUI(liveFecha, liveTco);
 
       const nowLabel = new Date().toLocaleString('es-BO', {
         hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short',
@@ -410,6 +713,9 @@
         if (cached) {
           if (cached.tc) renderOfficial(cached.tc);
           renderParallel(cached.parallel, cached.tc ? cached.tc.compra : null);
+          const cf = cached.tc && (cached.tc.fecha || cached.tc.vigencia_desde);
+          const cv = cached.tc && (cached.tc.compra != null ? cached.tc.compra : cached.tc.valor);
+          updateTrendUI(cf, cv);
           const saved = cached.savedAt
             ? new Date(cached.savedAt).toLocaleString('es-BO', {
                 hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short',
@@ -422,6 +728,7 @@
           $('oficialCompra').textContent = '—';
           $('oficialVenta').textContent = '—';
           renderParallel(null);
+          updateTrendUI(null, null);
         }
       }
 
@@ -430,10 +737,16 @@
 
     $('btnRefresh').addEventListener('click', () => refresh(true));
 
-    // Show cache immediately for snappy UX
+    // Seed chart immediately; cache for rates
+    updateTrendUI('2026-09-18', 10.01);
     const cached = loadCache();
     if (cached) {
-      if (cached.tc) renderOfficial(cached.tc);
+      if (cached.tc) {
+        renderOfficial(cached.tc);
+        const cf = cached.tc.fecha || cached.tc.vigencia_desde;
+        const cv = cached.tc.compra != null ? cached.tc.compra : cached.tc.valor;
+        updateTrendUI(cf, cv);
+      }
       renderParallel(cached.parallel, cached.tc ? cached.tc.compra : null);
       setStatus('warn', 'Caché local · actualizando…');
     }

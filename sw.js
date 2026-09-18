@@ -1,4 +1,4 @@
-const CACHE = 'dolar-bolivia-v1';
+const CACHE = 'dolar-bolivia-v2';
 const ASSETS = [
   './',
   './index.html',
